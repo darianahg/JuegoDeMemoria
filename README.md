@@ -1,16 +1,11 @@
 # juego_memoria
 
-A new Flutter project.
+Este proyecto es una aplicación móvil desarrollada con Flutter que simula un juego de memoria en el que el jugador debe encontrar parejas de cartas iguales. El juego incluye diferentes niveles de dificultad y un sistema de puntajes que permite llevar un récord de los mejores resultados.
 
-## Getting Started
+La aplicación está diseñada para ser intuitiva y atractiva, con una interfaz que facilita la interacción y ofrece animaciones para mejorar la experiencia del usuario.
 
-This project is a starting point for a Flutter application.
+# Cómo empezar
+1. Clona el repositorio.
+2. Ejecuta con flutter run.
+3. Trabaja en la rama asignada.
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
