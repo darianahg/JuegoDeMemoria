@@ -6,11 +6,12 @@ class PantallaInicio extends StatefulWidget {
   @override
   _PantallaInicioState createState() => _PantallaInicioState();
 }
+
 class _PantallaInicioState extends State<PantallaInicio> {
   int filas = 2;
   int columnas = 2;
   String nombreJugador = "";
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -26,7 +27,7 @@ class _PantallaInicioState extends State<PantallaInicio> {
                 style: EstilosApp.tituloGrande,
               ),
               SizedBox(height: 30),
-                //Campo nombre
+              //Campo nombre
               TextField(
                 decoration: InputDecoration(
                   labelText: "Tu nombre",
@@ -38,7 +39,7 @@ class _PantallaInicioState extends State<PantallaInicio> {
                 },
               ),
               SizedBox(height: 20),
-              
+
               //Selector de filas
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -60,7 +61,7 @@ class _PantallaInicioState extends State<PantallaInicio> {
                   ),
                 ],
               ),
-              
+
               // Selector de columnas
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -83,7 +84,7 @@ class _PantallaInicioState extends State<PantallaInicio> {
                 ],
               ),
               SizedBox(height: 30),
-                //Botón iniciar
+              //Botón iniciar
               ElevatedButton(
                 onPressed: () {
                   if (nombreJugador.trim().isEmpty) {
@@ -92,15 +93,17 @@ class _PantallaInicioState extends State<PantallaInicio> {
                     );
                     return;
                   }
-                  
+
                   // Validar que el número de cartas sea par
                   if ((filas * columnas) % 2 != 0) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('El número total de cartas debe ser par')),
+                      SnackBar(
+                          content:
+                              Text('El número total de cartas debe ser par')),
                     );
                     return;
                   }
-                  
+
                   Navigator.push(
                     context,
                     MaterialPageRoute(
