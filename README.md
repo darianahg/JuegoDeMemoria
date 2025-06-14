@@ -4,6 +4,8 @@ Este proyecto es una aplicación móvil desarrollada con Flutter que simula un j
 
 La aplicación está diseñada para ser intuitiva y atractiva, con una interfaz que facilita la interacción y ofrece animaciones para mejorar la experiencia del usuario.
 
+Proyecto colaborativo.
+
 # Cómo empezar
 1. Clona el repositorio.
 2. Ejecuta con flutter run.
