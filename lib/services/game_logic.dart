@@ -1,5 +1,6 @@
 import '../models/card_model.dart';
 import 'dart:math';
+import 'package:flutter/material.dart';
 
 class LogicaJuego {
   List<List<ModeloCarta>> matriz = [];
@@ -10,9 +11,16 @@ class LogicaJuego {
   
   List<ModeloCarta> cartasVolteadas = [];
   
-  //genera la matriz con parejas
+  // Callback para notificar cambios en la UI
+  VoidCallback? onUpdateUI;
+    //genera la matriz con parejas
   List<List<ModeloCarta>> generarMatriz(int filas, int columnas) {
     totalPares = (filas * columnas) ~/ 2;
+    
+    // Validar que el número de cartas sea par
+    if ((filas * columnas) % 2 != 0) {
+      throw ArgumentError('El número total de cartas debe ser par para formar parejas');
+    }
     
     //Crear lista de valores para las parejas
     List<String> valores = [];
@@ -31,7 +39,7 @@ class LogicaJuego {
     
     for (int i = 0; i < filas; i++) {
       List<ModeloCarta> fila = [];
-      for (int j=0; j < columnas; j++) {
+      for (int j = 0; j < columnas; j++) {
         fila.add(ModeloCarta(
           id: contador,
           valor: valores[contador],
@@ -58,7 +66,6 @@ class LogicaJuego {
     }
     return true;
   }
-  
   // Verificar si hay pareja
   void verificarPareja() {
     intentos++;
@@ -69,15 +76,22 @@ class LogicaJuego {
       cartasVolteadas[1].estaEmparejada = true;
       paresEncontrados++;
       puntos += 10;
+      cartasVolteadas.clear();
     } else {
-      //pareja incorrecta - voltear después de un tiempo
-      Future.delayed(Duration(milliseconds: 1000), () {
-        cartasVolteadas[0].estaVolteada = false;
-        cartasVolteadas[1].estaVolteada = false;
+      //pareja incorrecta - voltear después de 2 segundos
+      final primeraCarta = cartasVolteadas[0];
+      final segundaCarta = cartasVolteadas[1];
+      // No limpiar cartasVolteadas aquí para evitar más clicks
+      Future.delayed(Duration(milliseconds: 2000), () {
+        primeraCarta.estaVolteada = false;
+        segundaCarta.estaVolteada = false;
+        cartasVolteadas.clear();
+        // Notificar a la UI que debe actualizarse
+        if (onUpdateUI != null) {
+          onUpdateUI!();
+        }
       });
     }
-    
-    cartasVolteadas.clear();
   }
   
   //verificar si el juego terminó
