@@ -8,30 +8,41 @@ class PantallaJuego extends StatefulWidget {
   final int filas;
   final int columnas;
   final String nombreJugador;
-  
+
   PantallaJuego({
     required this.filas,
     required this.columnas,
     required this.nombreJugador,
   });
-  
+
   @override
   _PantallaJuegoState createState() => _PantallaJuegoState();
 }
 
 class _PantallaJuegoState extends State<PantallaJuego> {
   LogicaJuego logica = LogicaJuego();
-  
   @override
   void initState() {
     super.initState();
     logica.generarMatriz(widget.filas, widget.columnas);
+    // Configurar el callback para actualizar la UI
+    logica.onUpdateUI = () {
+      if (mounted) {
+        setState(() {});
+      }
+    };
   }
-  
+
+  @override
+  void dispose() {
+    logica.onUpdateUI = null;
+    super.dispose();
+  }
+
   void alPresionarCarta(int fila, int columna) {
     setState(() {
       bool pudoVoltear = logica.voltearCarta(fila, columna);
-      
+
       if (pudoVoltear && logica.juegoTerminado()) {
         //Navegar a pantalla de resultados después de un breve delay
         Future.delayed(Duration(milliseconds: 500), () {
@@ -49,7 +60,7 @@ class _PantallaJuegoState extends State<PantallaJuego> {
       }
     });
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -60,20 +71,37 @@ class _PantallaJuegoState extends State<PantallaJuego> {
       ),
       body: Column(
         children: [
-          // Estadísticas
+          // Estadísticas mejoradas
           Container(
             padding: EdgeInsets.all(20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+            child: Column(
               children: [
-                Text("Intentos: ${logica.intentos}", style: EstilosApp.textoNormal),
-                Text("Puntos: ${logica.puntos}", style: EstilosApp.textoNormal),
-                Text("Pares: ${logica.paresEncontrados}/${logica.totalPares}", 
-                     style: EstilosApp.textoNormal),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    Text("Intentos: ${logica.intentos}",
+                        style: EstilosApp.textoNormal),
+                    Text("Puntos: ${logica.puntos}",
+                        style: EstilosApp.textoNormal),
+                    Text(
+                        "Pares: ${logica.paresEncontrados}/${logica.totalPares}",
+                        style: EstilosApp.textoNormal),
+                  ],
+                ),
+                SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    Text("✓ Correctos: ${logica.intentosCorrectos}",
+                        style: TextStyle(color: Colors.green, fontSize: 14)),
+                    Text("✗ Fallidos: ${logica.intentosFallidos}",
+                        style: TextStyle(color: Colors.red, fontSize: 14)),
+                  ],
+                ),
               ],
             ),
           ),
-          
+
           //Tablero
           Expanded(
             child: Center(
@@ -89,10 +117,10 @@ class _PantallaJuegoState extends State<PantallaJuego> {
                 itemBuilder: (context, index) {
                   int fila = index ~/ widget.columnas;
                   int columna = index % widget.columnas;
-                  
+
                   return WidgetCarta(
                     carta: logica.matriz[fila][columna],
-                    alPresionar: () =>alPresionarCarta(fila, columna),
+                    alPresionar: () => alPresionarCarta(fila, columna),
                   );
                 },
               ),
