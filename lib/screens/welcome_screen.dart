@@ -26,12 +26,12 @@ class _PantallaInicioState extends State<PantallaInicio> {
                 style: EstilosApp.tituloGrande,
               ),
               SizedBox(height: 30),
-              
-              //Campo nombre
+                //Campo nombre
               TextField(
                 decoration: InputDecoration(
                   labelText: "Tu nombre",
-                  border:OutlineInputBorder(),
+                  border: OutlineInputBorder(),
+                  hintText: "Ingresa tu nombre aquí",
                 ),
                 onChanged: (valor) {
                   nombreJugador = valor;
@@ -83,22 +83,34 @@ class _PantallaInicioState extends State<PantallaInicio> {
                 ],
               ),
               SizedBox(height: 30),
-              
-              //Botón iniciar
+                //Botón iniciar
               ElevatedButton(
                 onPressed: () {
-                  if (nombreJugador.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PantallaJuego(
-                          filas: filas,
-                          columnas: columnas,
-                          nombreJugador: nombreJugador,
-                        ),
-                      ),
+                  if (nombreJugador.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Por favor ingresa tu nombre')),
                     );
+                    return;
                   }
+                  
+                  // Validar que el número de cartas sea par
+                  if ((filas * columnas) % 2 != 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('El número total de cartas debe ser par')),
+                    );
+                    return;
+                  }
+                  
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PantallaJuego(
+                        filas: filas,
+                        columnas: columnas,
+                        nombreJugador: nombreJugador.trim(),
+                      ),
+                    ),
+                  );
                 },
                 style: EstilosApp.botonPrincipal,
                 child: Text("Iniciar Juego", style: EstilosApp.textoBoton),
