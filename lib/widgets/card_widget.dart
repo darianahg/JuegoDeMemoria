@@ -10,9 +10,10 @@ class WidgetCarta extends StatelessWidget {
     required this.carta,
     required this.alPresionar,
   });
-  
-  @override
+    @override
   Widget build(BuildContext context) {
+    bool estaEsperando = carta.estaVolteada && !carta.estaEmparejada;
+    
     return GestureDetector(
       onTap: alPresionar,
       child: Container(
@@ -21,10 +22,13 @@ class WidgetCarta extends StatelessWidget {
           color: carta.estaEmparejada 
               ? EstilosApp.colorExito
               : carta.estaVolteada 
-                  ? EstilosApp.colorCartaVolteada
+                  ? (estaEsperando ? EstilosApp.colorCartaVolteada.withOpacity(0.8) : EstilosApp.colorCartaVolteada)
                   : EstilosApp.colorCartaOculta,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: EstilosApp.colorBorde, width: 2),
+          border: Border.all(
+            color: estaEsperando ? Colors.orange : EstilosApp.colorBorde, 
+            width: estaEsperando ? 3 : 2
+          ),
         ),
         child: Center(
           child: Text(
