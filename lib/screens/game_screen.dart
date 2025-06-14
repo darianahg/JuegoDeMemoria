@@ -21,11 +21,22 @@ class PantallaJuego extends StatefulWidget {
 
 class _PantallaJuegoState extends State<PantallaJuego> {
   LogicaJuego logica = LogicaJuego();
-  
-  @override
+    @override
   void initState() {
     super.initState();
     logica.generarMatriz(widget.filas, widget.columnas);
+    // Configurar el callback para actualizar la UI
+    logica.onUpdateUI = () {
+      if (mounted) {
+        setState(() {});
+      }
+    };
+  }
+  
+  @override
+  void dispose() {
+    logica.onUpdateUI = null;
+    super.dispose();
   }
   
   void alPresionarCarta(int fila, int columna) {
