@@ -6,7 +6,8 @@ class WidgetCarta extends StatelessWidget {
   final ModeloCarta carta;
   final VoidCallback alPresionar;
 
-  WidgetCarta({
+  const WidgetCarta({
+    super.key,
     required this.carta,
     required this.alPresionar,
   });
