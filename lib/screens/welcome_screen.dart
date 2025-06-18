@@ -31,7 +31,6 @@ class _PantallaInicioState extends State<PantallaInicio> {
 
     try {
       await Future.delayed(const Duration(milliseconds: 300));
-      await ServicioPuntaje.mostrarContenidoArchivo();
       String info = await ServicioPuntaje.obtenerTextoCompleto();
       
       setState(() {
@@ -75,33 +74,6 @@ class _PantallaInicioState extends State<PantallaInicio> {
     ]);
   }
 
-  void _mostrarMenuDebug() {
-    _mostrarDialog('Opciones de Debug', '¿Qué quieres hacer?', [
-      TextButton(
-        child: const Text('Ver Archivo'),
-        onPressed: () async {
-          Navigator.of(context).pop();
-          await ServicioPuntaje.mostrarContenidoArchivo();
-        },
-      ),
-      TextButton(
-        child: const Text('Limpiar Datos'),
-        onPressed: () async {
-          Navigator.of(context).pop();
-          await ServicioPuntaje.limpiarDatos();
-          cargarInformacion();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Datos limpiados')),
-          );
-        },
-      ),
-      TextButton(
-        child: const Text('Cancelar'),
-        onPressed: () => Navigator.of(context).pop(),
-      ),
-    ]);
-  }
-
   // Calcular información de la matriz
   String _obtenerInfoMatriz(int dim) {
     int totalCeldas = dim * dim;
@@ -122,7 +94,7 @@ class _PantallaInicioState extends State<PantallaInicio> {
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 19, 24, 68),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber, width: 1),
+        border: Border.all(color: Colors.blue, width: 1),
       ),
       child: cargando 
         ? const Row(
@@ -132,18 +104,18 @@ class _PantallaInicioState extends State<PantallaInicio> {
                 width: 16, height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
                 ),
               ),
               SizedBox(width: 10),
-              Text("Cargando...", style: TextStyle(color: Colors.amber, fontSize: 14)),
+              Text("Cargando...", style: TextStyle(color: Colors.blue, fontSize: 14)),
             ],
           )
         : Column(
             children: [
               Text(
                 textoCompleto,
-                style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold),
+                style: const TextStyle(color: Colors.blue, fontSize: 14, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
@@ -151,7 +123,7 @@ class _PantallaInicioState extends State<PantallaInicio> {
                 onTap: cargarInformacion,
                 child: const Text(
                   "Actualizar",
-                  style: TextStyle(color: Colors.blue, fontSize: 12, decoration: TextDecoration.underline),
+                  style: TextStyle(color: Colors.lightBlue, fontSize: 12, decoration: TextDecoration.underline),
                 ),
               ),
             ],
@@ -251,27 +223,16 @@ class _PantallaInicioState extends State<PantallaInicio> {
                   children: [
                     const SizedBox(height: 20),
                     
-                    //Título con botón debug
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            "Juego de Memoria",
-                            style: EstilosApp.tituloGrande.copyWith(
-                              fontSize: 28, color: Colors.blue[100], fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: _mostrarMenuDebug,
-                          child: const Icon(Icons.settings, color: Colors.white54, size: 20),
-                        ),
-                      ],
+                    // Título simple sin botón debug
+                    Text(
+                      "Juego de Memoria",
+                      style: EstilosApp.tituloGrande.copyWith(
+                        fontSize: 28, color: Colors.blue[100], fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 20),
                     
-                    //Información de puntajes
+                    //Información de último juego
                     _construirInfoPuntajes(),
                     const SizedBox(height: 25),
                     
@@ -328,7 +289,7 @@ class _PantallaInicioState extends State<PantallaInicio> {
                       print('Iniciando juego con: ${nombreJugador.trim()}');
                       
                       // Navegar al juego
-                      final resultado = await Navigator.push(
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => PantallaJuego(
@@ -339,8 +300,9 @@ class _PantallaInicioState extends State<PantallaInicio> {
                         ),
                       );
                       
-                      // Recargar información cuando regrese del juego
-                      if (resultado != null) cargarInformacion();
+                      // IMPORTANTE: Recargar información cuando regrese del juego
+                      print('Regresando del juego, recargando información...');
+                      cargarInformacion();
                     }),
                     const SizedBox(height: 15),
                     
