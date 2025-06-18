@@ -25,16 +25,19 @@ class PantallaResultados extends StatefulWidget {
 }
 
 class _PantallaResultadosState extends State<PantallaResultados> {
-  late ConfettiController _confettiController;
   bool _puntajeGuardado = false;
+  String _mensajeGuardado = "Guardando puntaje...";
   bool _esNuevoRecord = false;
-  String _mensajeGuardado = "Verificando puntaje...";
+  
+  // Controlador de confeti
+  late ConfettiController _confettiController;
 
   @override
   void initState() {
     super.initState();
+    // Inicializar controlador de confeti
     _confettiController = ConfettiController(duration: const Duration(seconds: 3));
-    _verificarYGuardarPuntaje();
+    _guardarPuntaje();
   }
 
   @override
@@ -43,40 +46,49 @@ class _PantallaResultadosState extends State<PantallaResultados> {
     super.dispose();
   }
 
-  void _verificarYGuardarPuntaje() async {
-    // Verificar si es nuevo récord
-    bool esRecord = await ServicioPuntaje.esNuevoRecord(widget.puntos);
-    
-    setState(() {
-      _esNuevoRecord = esRecord;
-    });
-
-    if (esRecord) {
-      _confettiController.play(); // Solo confetti si es record
-    }
-    
-    // Guardar puntaje
-    bool guardado = await ServicioPuntaje.guardarPuntaje(
-      widget.nombreJugador, 
-      widget.puntos
-    );
-    
-    setState(() {
-      _puntajeGuardado = true;
-      if (esRecord) {
-        _mensajeGuardado = "¡NUEVO RÉCORD! Puntaje guardado";
-      } else {
-        _mensajeGuardado = "Puntaje registrado correctamente";
+  void _guardarPuntaje() async {
+    try {
+      // Verificar si es nuevo récord ANTES de guardar
+      _esNuevoRecord = await ServicioPuntaje.esNuevoRecord(widget.puntos);
+      
+      // Guardar puntaje
+      bool guardado = await ServicioPuntaje.guardarPuntaje(
+        widget.nombreJugador, 
+        widget.puntos
+      );
+      
+      setState(() {
+        _puntajeGuardado = true;
+        if (guardado) {
+          _mensajeGuardado = _esNuevoRecord 
+              ? "¡NUEVO RÉCORD! Puntaje guardado"
+              : "Puntaje registrado correctamente";
+        } else {
+          _mensajeGuardado = "Error guardando puntaje";
+        }
+      });
+      
+      // Activar confeti cuando se termine de guardar
+      if (guardado) {
+        _confettiController.play();
       }
-    });
+      
+      // Debug
+      print('Puntaje guardado: $guardado');
+      print('Es nuevo récord: $_esNuevoRecord');
+      
+    } catch (e) {
+      print('Error en _guardarPuntaje: $e');
+      setState(() {
+        _puntajeGuardado = true;
+        _mensajeGuardado = "Error guardando puntaje";
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     int puntajeFinal = widget.puntos;
-    double eficiencia = widget.intentos > 0 
-        ? (widget.intentosCorrectos / widget.intentos * 100) 
-        : 0;
 
     return Scaffold(
       body: Stack(
@@ -116,32 +128,12 @@ class _PantallaResultadosState extends State<PantallaResultados> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _esNuevoRecord ? "¡NUEVO RÉCORD!" : "¡Juego Terminado!",
+                          "¡Juego Terminado!",
                           style: EstilosApp.tituloGrande.copyWith(
-                            color: _esNuevoRecord ? Colors.amber : Colors.white,
-                            fontSize: _esNuevoRecord ? 32 : 28,
+                            color: Colors.white,
+                            fontSize: 28,
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        
-                        if (_esNuevoRecord)
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.amber.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.amber, width: 2),
-                            ),
-                            child: const Text(
-                              "¡Felicidades! Has establecido un nuevo récord",
-                              style: TextStyle(
-                                color: Colors.amber,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
                         
                         const SizedBox(height: 20),
                         Text(widget.nombreJugador, style: EstilosApp.tituloMedio),
@@ -163,7 +155,6 @@ class _PantallaResultadosState extends State<PantallaResultados> {
                               _construirFilaEstadistica("Intentos totales:", "${widget.intentos}"),
                               _construirFilaEstadistica("Aciertos:", "${widget.intentosCorrectos}"),
                               _construirFilaEstadistica("Errores:", "${widget.intentosFallidos}"),
-                              _construirFilaEstadistica("Eficiencia:", "${eficiencia.toStringAsFixed(1)}%"),
                               
                               const Divider(color: Colors.white24, height: 20),
                               
@@ -193,7 +184,7 @@ class _PantallaResultadosState extends State<PantallaResultados> {
                           padding: const EdgeInsets.all(15),
                           decoration: BoxDecoration(
                             color: _puntajeGuardado 
-                                ? (_esNuevoRecord ? Colors.amber.withOpacity(0.2) : Colors.green.withOpacity(0.2))
+                                ? (_esNuevoRecord ? Colors.yellow.withOpacity(0.2) : Colors.green.withOpacity(0.2))
                                 : Colors.blue.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
@@ -238,6 +229,7 @@ class _PantallaResultadosState extends State<PantallaResultados> {
                           width: double.infinity,
                           child: ElevatedButton(
                             onPressed: () {
+                              // Regresar a la pantalla de inicio
                               Navigator.pushAndRemoveUntil(
                                 context,
                                 MaterialPageRoute(
@@ -258,33 +250,34 @@ class _PantallaResultadosState extends State<PantallaResultados> {
             ),
           ),
           
-          // Confetti solo para nuevos récords
-          if (_esNuevoRecord)
-            Align(
-              alignment: Alignment.topCenter,
-              child: ConfettiWidget(
-                confettiController: _confettiController,
-                blastDirectionality: BlastDirectionality.explosive,
-                shouldLoop: false,
-                colors: const [
-                  Colors.amber,
-                  Colors.yellow,
-                  Colors.orange,
-                  Colors.red,
-                  Colors.blue,
-                  Colors.green
-                ],
-                emissionFrequency: 0.05,
-                numberOfParticles: 30,
-                gravity: 0.1,
-                maxBlastForce: 25,
-                minBlastForce: 8,
-              ),
+          // Widget de confeti
+          Align(
+            alignment: Alignment.topCenter,
+            child: ConfettiWidget(
+              confettiController: _confettiController,
+              blastDirection: 1.5708, // radianes hacia abajo (90 grados)
+              maxBlastForce: 20,
+              minBlastForce: 10,
+              emissionFrequency: 0.05,
+              numberOfParticles: 30,
+              gravity: 0.3,
+              shouldLoop: false,
+              colors: const [
+                Colors.green,
+                Colors.blue,
+                Colors.pink,
+                Colors.orange,
+                Colors.purple,
+                Colors.yellow,
+                Colors.red,
+              ],
             ),
+          ),
         ],
       ),
     );
   }
+
   Widget _construirFilaEstadistica(String etiqueta, String valor) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
