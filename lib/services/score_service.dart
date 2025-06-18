@@ -1,128 +1,102 @@
-import 'dart:io';
-import 'dart:convert';
-import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+/// Servicio para manejar puntajes y récords del juego
 class ServicioPuntaje {
-  static const String _nombreArchivo = 'puntajes_juego.txt';
+  
+  // ==================== CONSTANTES ====================
+  
+  /// Claves para SharedPreferences
+  static const String _keyUltimoJugador = 'ultimo_jugador';
+  static const String _keyUltimoPuntaje = 'ultimo_puntaje';
+  static const String _keyRecordJugador = 'record_jugador';
+  static const String _keyRecordPuntaje = 'record_puntaje';
+  static const String _keyRecordFecha = 'record_fecha';
 
-  // Obtener la ruta del archivo
-  static Future<String> _obtenerRutaArchivo() async {
+  // ==================== MÉTODOS PRIVADOS ====================
+  /// Obtiene instancia de SharedPreferences con manejo de errores
+  static Future<SharedPreferences> _getPrefs() async {
     try {
-      final directorio = await getApplicationDocumentsDirectory();
-      final ruta = '${directorio.path}/$_nombreArchivo';
-      print('Ruta archivo: $ruta'); //debug
-      return ruta;
+      return await SharedPreferences.getInstance();
     } catch (e) {
-      print('Error obteniendo ruta: $e');
+      print('Error obteniendo SharedPreferences: $e');
       rethrow;
     }
   }
 
-  // Leer datos del archivo
-  static Future<Map<String, dynamic>> _leerDatos() async {
-    try {
-      final rutaArchivo = await _obtenerRutaArchivo();
-      final archivo = File(rutaArchivo);
-      
-      if (!await archivo.exists()) {
-        print('Archivo no existe, creando datos vacíos');
-        return {};
-      }
-      
-      String contenido = await archivo.readAsString();
-      print('Contenido leído: $contenido'); // Debug
-      
-      if (contenido.trim().isEmpty) {
-        print('Archivo vacío');
-        return {};
-      }
-      
-      return jsonDecode(contenido);
-    } catch (e) {
-      print('Error leyendo datos: $e');
-      return {};
-    }
-  }
-
-  // Escribir datos al archivo
-  static Future<bool> _escribirDatos(Map<String, dynamic> datos) async {
-    try {
-      final rutaArchivo = await _obtenerRutaArchivo();
-      final archivo = File(rutaArchivo);
-      
-      // Crear directorio si no existe
-      await archivo.parent.create(recursive: true);
-      String jsonString = jsonEncode(datos);
-      await archivo.writeAsString(jsonString);
-      
-      print('Datos guardados: $jsonString'); // Debug
-      return true;
-    } catch (e) {
-      print('Error escribiendo datos: $e');
+  /// Valida que los datos de entrada sean correctos
+  static bool _validarDatos(String nombre, int puntaje) {
+    if (nombre.trim().isEmpty) {
+      print('Error: nombre vacío');
       return false;
     }
+    
+    if (puntaje < 0) {
+      print('Error: puntaje negativo');
+      return false;
+    }
+    
+    return true;
   }
 
-  // Guardar puntaje
+  // ==================== MÉTODOS PRINCIPALES ====================
+  
+  /// Guarda un puntaje y actualiza récord si es necesario
   static Future<bool> guardarPuntaje(String nombre, int puntaje) async {
     try {
-      // Leer datos existentes
-      Map<String, dynamic> datos = await _leerDatos();
+      // Validar datos de entrada
+      if (!_validarDatos(nombre, puntaje)) return false;
+      
+      print('Guardando puntaje: $nombre = $puntaje puntos');
+      
+      final prefs = await _getPrefs();
+      final nombreLimpio = nombre.trim();
       
       // Actualizar último jugador
-      datos['ultimo_jugador'] = nombre;
-      datos['ultimo_puntaje'] = puntaje;
+      await prefs.setString(_keyUltimoJugador, nombreLimpio);
+      await prefs.setInt(_keyUltimoPuntaje, puntaje);
       
-      //verificar y actualizar récord
-      int recordActual = datos['record_puntaje'] ?? 0;
-      if (puntaje > recordActual) {
-        datos['record_jugador'] = nombre;
-        datos['record_puntaje'] = puntaje;
-        datos['record_fecha'] = DateTime.now().toIso8601String();
-        print('¡Nuevo récord establecido! $nombre con $puntaje puntos');
-      }
+      // Verificar y actualizar récord si es necesario
+      await _actualizarRecordSiEsNecesario(prefs, nombreLimpio, puntaje);
       
-      // Guardar datos
-      return await _escribirDatos(datos);
+      print('Puntaje guardado exitosamente');
+      return true;
+      
     } catch (e) {
       print('Error guardando puntaje: $e');
       return false;
     }
   }
 
-  //Obtener último jugador
+  /// Obtiene información del último jugador
   static Future<Map<String, dynamic>?> obtenerUltimoJugador() async {
     try {
-      Map<String, dynamic> datos = await _leerDatos();
+      final prefs = await _getPrefs();
       
-      String? nombre = datos['ultimo_jugador'];
-      int? puntaje = datos['ultimo_puntaje'];
+      String? nombre = prefs.getString(_keyUltimoJugador);
+      int? puntaje = prefs.getInt(_keyUltimoPuntaje);
       
       if (nombre == null || puntaje == null) {
         print('No hay último jugador registrado');
         return null;
       }
       
-      return {
-        'nombre': nombre,
-        'puntaje': puntaje,
-      };
+      return {'nombre': nombre, 'puntaje': puntaje};
+      
     } catch (e) {
       print('Error obteniendo último jugador: $e');
       return null;
     }
   }
-
-  // Obtener récord
+  /// Obtiene información del récord actual
   static Future<Map<String, dynamic>?> obtenerRecord() async {
     try {
-      Map<String, dynamic> datos = await _leerDatos();
+      final prefs = await _getPrefs();
       
-      String? nombre = datos['record_jugador'];
-      int? puntaje = datos['record_puntaje'];
-      String? fecha = datos['record_fecha'];
+      String? nombre = prefs.getString(_keyRecordJugador);
+      int? puntaje = prefs.getInt(_keyRecordPuntaje);
+      String? fecha = prefs.getString(_keyRecordFecha);
       
-      if (nombre == null || puntaje == null) {
+      if (nombre == null || puntaje == null || puntaje == 0) {
         print('No hay récord registrado');
         return null;
       }
@@ -132,102 +106,140 @@ class ServicioPuntaje {
         'puntaje': puntaje,
         'fecha': fecha ?? DateTime.now().toIso8601String(),
       };
+      
     } catch (e) {
       print('Error obteniendo récord: $e');
       return null;
     }
   }
-
-  // Verificar si es nuevo récord
+  /// Verifica si un puntaje es un nuevo récord
   static Future<bool> esNuevoRecord(int puntaje) async {
     try {
       final record = await obtenerRecord();
+      
       if (record == null) {
         print('No hay récord previo, este será el primero');
         return true;
       }
+      
       bool esNuevo = puntaje > record['puntaje'];
       print('¿Es nuevo récord? $esNuevo (Actual: $puntaje vs Récord: ${record['puntaje']})');
       return esNuevo;
+      
     } catch (e) {
       print('Error verificando récord: $e');
-      return true;
+      return true; //En caso de error, asume que es récord
     }
   }
-
-  // Obtener texto para mostrar en pantalla principal
+  /// Obtiene texto completo para mostrar en pantalla principal
   static Future<String> obtenerTextoCompleto() async {
     try {
       final ultimo = await obtenerUltimoJugador();
       final record = await obtenerRecord();
       
-      String texto = "";
-      
-      // Último jugador
-      if (ultimo != null) {
-        texto += "🎮 Último: ${ultimo['nombre']} (${ultimo['puntaje']} pts)\n";
-      } else {
-        texto += "🎮 Primer juego\n";
-      }
-      
-      // Récord
-      if (record != null) {
-        texto += "🏆 Récord: ${record['nombre']} - ${record['puntaje']} pts";
-        
-        try {
-          DateTime fecha = DateTime.parse(record['fecha']);
-          texto += "\n📅 ${fecha.day}/${fecha.month}/${fecha.year}";
-        } catch (e) {
-          print('Error formateando fecha: $e');
-        }
-      } else {
-        texto += "🏆 ¡Establece el primer récord!";
-      }
+      String texto = _construirTextoUltimoJugador(ultimo);
+      texto += _construirTextoRecord(record);
       
       return texto.trim();
+      
     } catch (e) {
       print('Error obteniendo texto completo: $e');
-      return "Error cargando información";
+      return "🎮 ¡Bienvenido al juego!\n🏆 ¡Establece el primer récord!";
+    }
+  }
+  // ==================== MÉTODOS AUXILIARES ====================
+  
+  /// Actualiza el récord si el puntaje actual es mayor
+  static Future<void> _actualizarRecordSiEsNecesario(
+      SharedPreferences prefs, String nombre, int puntaje) async {
+    
+    int recordActual = prefs.getInt(_keyRecordPuntaje) ?? 0;
+    
+    if (puntaje > recordActual) {
+      await prefs.setString(_keyRecordJugador, nombre);
+      await prefs.setInt(_keyRecordPuntaje, puntaje);
+      await prefs.setString(_keyRecordFecha, DateTime.now().toIso8601String());
+      print('¡Nuevo récord establecido! $nombre con $puntaje puntos');
     }
   }
 
-  // Método de debug para ver el contenido del archivo
-  static Future<void> mostrarContenidoArchivo() async {
-    try {
-      final rutaArchivo = await _obtenerRutaArchivo();
-      final archivo = File(rutaArchivo);
+  /// Construye el texto para mostrar el último jugador
+  static String _construirTextoUltimoJugador(Map<String, dynamic>? ultimo) {
+    if (ultimo != null) {
+      return "🎮 Último: ${ultimo['nombre']} (${ultimo['puntaje']} pts)\n";
+    } else {
+      return "🎮 Primer juego\n";
+    }
+  }
+
+  /// Construye el texto para mostrar el récord
+  static String _construirTextoRecord(Map<String, dynamic>? record) {
+    if (record != null) {
+      String texto = "🏆 Récord: ${record['nombre']} - ${record['puntaje']} pts";
       
-      print('=== DEBUG ARCHIVO ===');
-      print('Ruta: $rutaArchivo');
-      print('Existe: ${await archivo.exists()}');
-      
-      if (await archivo.exists()) {
-        String contenido = await archivo.readAsString();
-        print('Contenido: $contenido');
-        print('Tamaño: ${contenido.length} caracteres');
-      } else {
-        print('El archivo no existe aún');
+      // Agregar fecha si es posible
+      try {
+        DateTime fecha = DateTime.parse(record['fecha']);
+        texto += "\n📅 ${fecha.day}/${fecha.month}/${fecha.year}";
+      } catch (e) {
+        print('Error formateando fecha: $e');
+        // No agregar fecha si hay error
       }
-      print('===================');
-    } catch (e) {
-      print('Error en debug: $e');
+      
+      return texto;
+    } else {
+      return "🏆 ¡Establece el primer récord!";
     }
   }
 
-  // Método para limpiar datos
+  // ==================== MÉTODOS UTILITARIOS ====================
+  
+  /// Verifica si hay datos guardados previamente
+  static Future<bool> hayDatosGuardados() async {
+    try {
+      final prefs = await _getPrefs();
+      return prefs.containsKey(_keyUltimoJugador) || 
+             prefs.containsKey(_keyRecordJugador);
+    } catch (e) {
+      print('Error verificando datos: $e');
+      return false;
+    }
+  }
+
+  /// Limpia todos los datos guardados (útil para resetear)
   static Future<bool> limpiarDatos() async {
     try {
-      final rutaArchivo = await _obtenerRutaArchivo();
-      final archivo = File(rutaArchivo);
+      final prefs = await _getPrefs();
       
-      if (await archivo.exists()) {
-        await archivo.delete();
-        print('Archivo eliminado para limpiar datos');
-      }
+      await prefs.remove(_keyUltimoJugador);
+      await prefs.remove(_keyUltimoPuntaje);
+      await prefs.remove(_keyRecordJugador);
+      await prefs.remove(_keyRecordPuntaje);
+      await prefs.remove(_keyRecordFecha);
+      
+      print('Datos limpiados correctamente');
       return true;
     } catch (e) {
       print('Error limpiando datos: $e');
       return false;
+    }
+  }
+
+  /// Muestra contenido de SharedPreferences para debug
+  static Future<void> mostrarContenidoArchivo() async {
+    try {
+      final prefs = await _getPrefs();
+      
+      print('=== DEBUG SHARED PREFERENCES ===');
+      print('Último jugador: ${prefs.getString(_keyUltimoJugador)}');
+      print('Último puntaje: ${prefs.getInt(_keyUltimoPuntaje)}');
+      print('Récord jugador: ${prefs.getString(_keyRecordJugador)}');
+      print('Récord puntaje: ${prefs.getInt(_keyRecordPuntaje)}');
+      print('Récord fecha: ${prefs.getString(_keyRecordFecha)}');
+      print('Todas las claves: ${prefs.getKeys()}');
+      print('===============================');
+    } catch (e) {
+      print('Error en debug: $e');
     }
   }
 }
