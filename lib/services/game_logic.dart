@@ -1,164 +1,190 @@
 import '../models/card_model.dart';
 import 'dart:math';
+import 'dart:collection';
 import 'package:flutter/material.dart';
 
-class LogicaJuego {
-  List<List<ModeloCarta>> matriz = [];
+// Clase para el historial de movimientos usando Pila
+class HistorialMovimiento {
+  final int puntos;
+  final int intentos;
+  final String accion; //'acierto' o 'error'
+  
+  HistorialMovimiento(this.puntos, this.intentos, this.accion);
+}
+
+abstract class JuegoBase {
+  void iniciarJuego();
+  void reiniciarJuego();
+  bool juegoTerminado();
+}
+
+class LogicaJuego extends JuegoBase {
+  // Matriz 2D - Arreglo bidimensional
+  List<List<ModeloCarta?>> matriz = [];
+  
+  // Variables de estado
   int intentos = 0;
   int intentosCorrectos = 0;
   int intentosFallidos = 0;
   int puntos = 0;
   int paresEncontrados = 0;
   int totalPares = 0;
+  bool bloqueado = false; //Bloquear volteo durante verificación
 
-  List<ModeloCarta> cartasVolteadas = [];
+  // Estructuras de datos específicas
+  Queue<ModeloCarta> cartasVolteadas = Queue<ModeloCarta>(); //Cola FIFO
+  List<HistorialMovimiento> historial = []; // Lista como Stack (Pila LIFO)
+  Set<String> valoresUnicos = Set<String>(); // Conjunto para valores únicos
 
-  // Callback para notificar cambios en la UI
-  VoidCallback? onUpdateUI; // Genera la matriz 2D con las parejas aleatorizadas
-  List<List<ModeloCarta>> generarMatriz(int filas, int columnas) {
-    totalPares = (filas * columnas) ~/ 2;
+  VoidCallback? onUpdateUI;
 
-    // Validar que el número de cartas sea par para formar parejas
-    if ((filas * columnas) % 2 != 0) {
-      throw ArgumentError(
-          'El número total de cartas debe ser par para formar parejas');
+  @override
+  void iniciarJuego() => reiniciarJuego();
+
+  // Función simple para generar letras hasta para (20x20)
+  String _generarLetra(int numero) {
+    if (numero < 26) {
+      // A-Z
+      return String.fromCharCode(65 + numero);
+    } else if (numero < 52) {
+      // a-z
+      return String.fromCharCode(97 + (numero-26));
+    } else if (numero < 62) {
+      // 0-9
+      return String.fromCharCode(48 + (numero-52));
+    } else {
+      // Para matrices muy grandes, combinaciones como AA, AB, etc.
+      int primera = (numero - 62) ~/ 26;
+      int segunda = (numero - 62) % 26;
+      return String.fromCharCode(65 + primera) + String.fromCharCode(65 + segunda);
     }
+  }
 
-    // Crear lista de valores para las parejas
-    List<String> valores = _generarValoresPareja(totalPares);
-
-    // Aleatorizar completamente la ubicación de las parejas
+  // Generar matriz rectangular optimizada
+  List<List<ModeloCarta?>> generarMatrizRectangular(int filas, int columnas) {
+    int totalCartas = filas * columnas;
+    if (totalCartas % 2 != 0) totalCartas--; // Asegurar número par
+    
+    totalPares = totalCartas ~/ 2;
+    
+    // Crear parejas usando Set para evitar duplicados
+    Set<String> valoresSet = {};
+    for (int i = 0; i < totalPares; i++) {
+      String valor = _generarLetra(i); // Usar nueva función
+      valoresSet.add(valor);
+    }
+    
+    // Convertir Set a List y duplicar para parejas
+    List<String> valores = [];
+    valoresSet.forEach((valor) {
+      valores.add(valor);
+      valores.add(valor);
+    });
     valores.shuffle(Random());
 
-    // Crear la matriz 2D con las cartas
-    matriz = _crearMatriz2D(filas, columnas, valores);
-
+    // Crear matriz 2D
+    matriz = List.generate(filas, (i) => 
+      List.generate(columnas, (j) {
+        int index = i * columnas + j;
+        return index < valores.length 
+          ? ModeloCarta(id: index, valor: valores[index])
+          : null;
+      })
+    );
+    
     return matriz;
   }
 
-  // Método privado para generar los valores de las parejas
-  List<String> _generarValoresPareja(int cantidadPares) {
-    List<String> valores = [];
-    for (int i = 0; i < cantidadPares; i++) {
-      String valor = String.fromCharCode(65 + i); // A, B, C, D...
-      valores.add(valor); // Primera carta del par
-      valores.add(valor); // Segunda carta del par
-    }
-    return valores;
-  }
-
-  // Método privado para crear la matriz 2D
-  List<List<ModeloCarta>> _crearMatriz2D(
-      int filas, int columnas, List<String> valores) {
-    List<List<ModeloCarta>> nuevaMatriz = [];
-    int contador = 0;
-
-    for (int i = 0; i < filas; i++) {
-      List<ModeloCarta> fila = [];
-      for (int j = 0; j < columnas; j++) {
-        fila.add(ModeloCarta(
-          id: contador,
-          valor: valores[contador],
-        ));
-        contador++;
-      }
-      nuevaMatriz.add(fila);
-    }
-    return nuevaMatriz;
-  }
-
-  //Voltear carta
+  // Voltear carta con bloqueo mejorado
   bool voltearCarta(int fila, int columna) {
-    if (matriz[fila][columna].estaVolteada ||
-        matriz[fila][columna].estaEmparejada ||
-        cartasVolteadas.length >= 2) {
-      return false;
-    }
-    matriz[fila][columna].estaVolteada = true;
-    cartasVolteadas.add(matriz[fila][columna]);
-
+    // Verificaciones usando operadores lógicos
+    if (bloqueado || 
+        matriz[fila][columna] == null || 
+        cartasVolteadas.length >= 2) return false;
+    
+    ModeloCarta carta = matriz[fila][columna]!;
+    if (carta.estaVolteada || carta.estaEmparejada) return false;
+    
+    // Voltear carta y agregar a cola
+    carta.estaVolteada = true;
+    cartasVolteadas.add(carta);
+    
+    // Si hay 2 cartas, verificar pareja
     if (cartasVolteadas.length == 2) {
-      verificarPareja();
+      bloqueado = true; //Bloquear más volteos
+      _verificarParejaConDelay();
     }
+    
     return true;
   }
 
-  // Verificar si hay pareja y manejar puntaje
-  void verificarPareja() {
+  // Verificar pareja con delay optimizado
+  void _verificarParejaConDelay() {
     intentos++;
-
-    if (_esParejValida()) {
-      _manejarParejaCorrecta();
+    
+    // Usar Queue para obtener cartas en orden FIFO
+    ModeloCarta primera = cartasVolteadas.removeFirst();
+    ModeloCarta segunda = cartasVolteadas.removeFirst();
+    
+    bool esPareja = primera.valor == segunda.valor;
+    
+    if (esPareja) {
+      // Pareja correcta
+      primera.estaEmparejada = true;
+      segunda.estaEmparejada = true;
+      paresEncontrados++;
+      intentosCorrectos++;
+      puntos += 10;
+      
+      //Agregar a Set de valores únicos encontrados
+      valoresUnicos.add(primera.valor);
+      
+      // Agregar a historial (Stack)
+      historial.add(HistorialMovimiento(puntos, intentos, 'acierto'));
+      bloqueado = false; // Desbloquear inmediatamente
+      onUpdateUI?.call();
+      
     } else {
-      _manejarParejaIncorrecta();
+      // Pareja incorrecta
+      intentosFallidos++;
+      puntos = (puntos - 5).clamp(0, double.infinity).toInt();
+      
+      // Agregar a historial (Stack)
+      historial.add(HistorialMovimiento(puntos, intentos, 'error'));
+      
+      // Delay para mostrar cartas antes de voltear
+      Future.delayed(Duration(milliseconds: 1500), () {
+        primera.estaVolteada = false;
+        segunda.estaVolteada = false;
+        bloqueado = false; //Desbloquear después del delay
+        onUpdateUI?.call();
+      });
     }
   }
 
-  // Verificar si las cartas forman una pareja válida
-  bool _esParejValida() {
-    return cartasVolteadas[0].valor == cartasVolteadas[1].valor;
-  }
+  @override
+  bool juegoTerminado() => paresEncontrados == totalPares;
 
-  // Manejar pareja correcta
-  void _manejarParejaCorrecta() {
-    cartasVolteadas[0].estaEmparejada = true;
-    cartasVolteadas[1].estaEmparejada = true;
-    paresEncontrados++;
-    intentosCorrectos++;
-
-    // Calcular puntos: base + bonus por eficiencia
-    int puntosBase = 10;
-    int bonusEficiencia = _calcularBonusEficiencia();
-    puntos += puntosBase + bonusEficiencia;
-
-    cartasVolteadas.clear();
-  }
-
-  // Manejar pareja incorrecta
-  void _manejarParejaIncorrecta() {
-    intentosFallidos++;
-
-    final primeraCarta = cartasVolteadas[0];
-    final segundaCarta = cartasVolteadas[1];
-
-    // Mantener cartas visibles por 2 segundos
-    Future.delayed(Duration(milliseconds: 2000), () {
-      primeraCarta.estaVolteada = false;
-      segundaCarta.estaVolteada = false;
-      cartasVolteadas.clear();
-
-      if (onUpdateUI != null) {
-        onUpdateUI!();
-      }
-    });
-  }
-
-  // Calcular bonus por eficiencia
-  int _calcularBonusEficiencia() {
-    if (intentosFallidos == 0) return 5; // Perfecto
-    if (intentosFallidos <= 2) return 3; // Muy bueno
-    if (intentosFallidos <= 5) return 1; // Bueno
-    return 0; // Sin bonus
-  }
-
-  //verificar si el juego terminó
-  bool juegoTerminado() {
-    return paresEncontrados == totalPares;
-  }
-
-  // Reiniciar juego limpiando todos los valores
+  @override
   void reiniciarJuego() {
+    // Limpiar todas las estructuras de datos
     matriz.clear();
-    intentos = 0;
-    intentosCorrectos = 0;
-    intentosFallidos = 0;
-    puntos = 0;
-    paresEncontrados = 0;
-    totalPares = 0;
-    cartasVolteadas.clear();
+    cartasVolteadas.clear(); // Cola
+    historial.clear(); //Stack/Lista
+    valoresUnicos.clear(); // Set
+    
+    // Resetear variables
+    intentos = intentosCorrectos = intentosFallidos = 0;
+    puntos = paresEncontrados = totalPares = 0;
+    bloqueado = false;
   }
 
-  // Obtener estadísticas del juego
+  // Obtener último movimiento del historial (Stack behavior)
+  HistorialMovimiento? obtenerUltimoMovimiento() {
+    return historial.isNotEmpty ? historial.last : null;
+  }
+
+  //Estadísticas usando las estructuras de datos
   Map<String, dynamic> obtenerEstadisticas() {
     return {
       'intentos': intentos,
@@ -167,8 +193,10 @@ class LogicaJuego {
       'puntos': puntos,
       'paresEncontrados': paresEncontrados,
       'totalPares': totalPares,
-      'eficiencia':
-          intentos > 0 ? (intentosCorrectos / intentos * 100).round() : 0,
+      'eficiencia': intentos > 0 ? (intentosCorrectos / intentos * 100).round() : 0,
+      'valoresUnicos': valoresUnicos.length, // Set size
+      'totalMovimientos': historial.length, //Stack size
+      'cartasEnJuego': cartasVolteadas.length, //Queue size
     };
   }
 }
